@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as ET
 import gzip
 from collections import defaultdict
+import numpy as np
 
 
 class EvalNode(object):
@@ -57,11 +58,43 @@ class EvalEnsemble(object):
         self.visit(lambda n: include(n, splits))
         return splits
 
-    def find_midpoints_by_fid(self):
-        midpoints = defaultdict(list)
+    def find_split_points_by_fid(self):
+        split_points = defaultdict(list)
+        # include all observed points
         for split in self.find_splits():
-            midpoints[split.fid].append(split.value)
-        return dict((fid, set(mps)) for fid, mps in midpoints.items())
+            split_points[split.fid].append(split.value)
+        return dict((fid, set(ps)) for fid, ps in split_points.items())
+
+
+def split_points_to_generator(ensemble, fstats):
+    split_points = ensemble.find_split_points_by_fid()
+    generator_data = {}
+    for fid, point_set in split_points.items():
+        mid_points = [fstats[fid]['min'],
+                      fstats[fid]['max'], fstats[fid]['mean']]
+        point_list = sorted(point_set)
+        for i in range(len(point_list)-1):
+            mid_points.append((point_list[i] + point_list[i+1])/2)
+        generator_data[fid] = mid_points
+
+    for fid, info in fstats.items():
+        if fid not in generator_data:
+            generator_data[fid] = [info['min'], info['mean'], info['max']]
+
+    num_features = len(generator_data) + 1
+    print('num_features {0}'.format(num_features))
+
+    def generate_batch(n):
+        y = np.zeros(n)
+        X = np.zeros((n, num_features))
+        for fid in generator_data.keys():
+            X[:, fid] = np.random.choice(
+                generator_data[fid], size=n, replace=True)
+        for i in range(n):
+            y[i] = ensemble.eval(X[i, :])
+        return X, y
+
+    return generate_batch
 
 
 def _parse_split(split):
