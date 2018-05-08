@@ -79,7 +79,8 @@ def split_points_to_generator(ensemble, fstats):
 
     for fid, info in fstats.items():
         if fid not in generator_data:
-            generator_data[fid] = [info['min'], info['mean'], info['max']]
+            generator_data[fid] = list(
+                set([info['min'], info['mean'], info['max']]))
 
     num_features = len(generator_data) + 1
     print('num_features {0}'.format(num_features))

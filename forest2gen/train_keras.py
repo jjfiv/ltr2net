@@ -14,14 +14,14 @@ def relu6(x):
     return K.relu(x, max_value=6)
 
 
-def create_dnn_model(D, layers=[500, 100], loss='mean_squared_error'):
+def create_dnn_model(D, layers=[500, 100], optimizer='adam', loss='mean_absolute_error', activation=relu6):
     assert(len(layers) >= 1)
     model = Sequential()
-    model.add(Dense(layers[0], activation=relu6, input_shape=(D,)))
+    model.add(Dense(layers[0], activation=activation, input_shape=(D,)))
     for layer in layers[1:]:
-        model.add(Dense(layer, activation=relu6))
-    model.add(Dense(1, activation=relu6))
-    model.compile(optimizer='adam', loss=loss)
+        model.add(Dense(layer, activation=activation))
+    model.add(Dense(1))
+    model.compile(optimizer=optimizer, loss=loss)
     return model
 
 
@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
     D = len(fstats)+1
     print("fstats.size={0}".format(len(fstats)))
-    model = create_dnn_model(D, [500, 100], 'mean_absolute_error')
+    model = create_dnn_model(D, [500, 100])
 
     generate_fn = split_points_to_generator(ensemble, fstats)
 
@@ -86,7 +86,5 @@ if __name__ == '__main__':
         print('Train[{2},{1}].Loss: {0}'.format(np.mean(loss), i, b))
         # predict on test data:
         pred_y = model.predict(test_X)
-        print('pred_y.shape', pred_y.shape)
         aps = compute_aps(pred_y, test_y, test_qids)
-        print(aps)
         print('Test.mAP: {0}'.format(np.mean(aps)))
