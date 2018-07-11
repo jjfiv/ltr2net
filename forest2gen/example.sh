@@ -1,1 +1,1 @@
-python3 -i train_keras.py ~/code/nnfr/tree_parsing/mq07.lambdaMart.l10.kcv10.tvs90.gz ~/code/nnfr/mq07.feature.stats.json ../data/mq07.features.ranklib.gz ../data/gov2.features.ranklib.gz output.model
+python3 -i train_torch.py ~/code/nnfr/tree_parsing/mq07.lambdaMart.l10.kcv10.tvs90.gz ~/code/nnfr/mq07.feature.stats.json ../data/mq07.features.ranklib.gz ../data/gov2.features.ranklib.gz output.model

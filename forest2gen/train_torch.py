@@ -13,17 +13,15 @@ from collections import defaultdict
 from sklearn.preprocessing import MinMaxScaler
 
 class ApproximateRanker(nn.Module):
-    def __init__(self, dim, layers=[500,100]):
+    def __init__(self, dim, layers=[300,1]):
         super(ApproximateRanker, self).__init__()
         steps = []
         for i in range(len(layers)):
             if i == 0:
                 steps.append(nn.Linear(dim, layers[i]))
-                steps.append(nn.Dropout())
                 steps.append(nn.ReLU6())
             else:
                 steps.append(nn.Linear(layers[i-1], layers[i]))
-                steps.append(nn.Dropout())
                 steps.append(nn.ReLU6())
         steps.append(nn.Linear(layers[-1], 1))
         self.forward_layers = nn.Sequential(*steps)
@@ -64,7 +62,7 @@ parser.add_argument('output_model')
 parser.add_argument('--quiet', required=False,
                     action='store_true', default=False)
 # Note that our batches are actually twice this size.
-parser.add_argument('--batch_size', required=False, type=int, default=1024)
+parser.add_argument('--batch_size', required=False, type=int, default=2500)
 args = parser.parse_args()
 
 print('load test data')
@@ -85,14 +83,13 @@ for i in tqdm(range(len(train_y))):
     training_data.append( (y_forest, xv) )
 print('collected predictions')
 
-do_test_eval = False
-if do_test_eval:
-    print('eval test data')
-    ensemble_ys = []
-    for i in range(len(test_qids)):
-        ensemble_ys.append(ensemble.eval(test_X[i, :]))
-    ensemble_aps = compute_aps(ensemble_ys, test_y, test_qids)
-    print('ensemble.mAP: {0}'.format(np.mean(ensemble_aps)))
+print('eval test data')
+ensemble_ys = []
+for i in tqdm(range(len(test_qids))):
+    ensemble_ys.append(ensemble.eval(test_X[i, :]))
+
+ensemble_aps = compute_aps(ensemble_ys, test_y, test_qids)
+print('ensemble.mAP: {0}'.format(np.mean(ensemble_aps)))
 
 fstats = None
 with smart_reader(args.stats_file) as fp:
@@ -100,7 +97,7 @@ with smart_reader(args.stats_file) as fp:
 
 D = len(fstats)+1
 print("fstats.size={0}".format(len(fstats)))
-model = ApproximateRanker(D, [500, 100])
+model = ApproximateRanker(D, [300,100])
 loss_function = nn.MSELoss()
 optimizer = optim.Adam(model.parameters())
 
@@ -125,13 +122,15 @@ def train_step():
         loss.backward()
         optimizer.step()
 
-train_step();
-
 def eval_step():
     model.eval()
     with torch.no_grad():
-        test_x = torch.tensor(test_X, dtype=torch.float)
+        test_x = torch.tensor(scaling.transform(test_X), dtype=torch.float)
         pred_y = model(test_x)
         aps = compute_aps(pred_y, test_y, test_qids)
         print('Test.mAP: {0}'.format(np.mean(aps)))
+
+# repeat as needed. (once is fine for train:MQ07/test:Gov2)
+train_step();
+eval_step();
 
