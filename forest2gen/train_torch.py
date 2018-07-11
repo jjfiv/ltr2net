@@ -74,8 +74,8 @@ train_X, train_y, _, _ = load_ranklib_file(args.train_data)
 print('load ranklib ensemble')
 ensemble = load_ranklib_model(args.input_model)
 
-#scaling = MinMaxScaler()
-#scaling.fit(train_X)
+scaling = MinMaxScaler()
+scaling.fit(train_X)
 
 print('eval training data')
 training_data = []
@@ -113,9 +113,9 @@ def train_step():
     progress = tqdm(list(batch(training_data, args.batch_size)))
     for minibatch in progress:
         train_ys = torch.tensor([y for (y,_) in minibatch], dtype=torch.float)
-        train_xs = torch.cat([torch.tensor(x, dtype=torch.float).view(1,-1) for (_,x) in minibatch])
+        train_xs = torch.cat([torch.tensor(scaling.transform([x])[0], dtype=torch.float).view(1,-1) for (_,x) in minibatch])
         cover_x, cover_y = generate_fn(args.batch_size)
-        batch_xs = torch.cat([torch.tensor(cover_x, dtype=torch.float), train_xs])
+        batch_xs = torch.cat([torch.tensor(scaling.transform(cover_x), dtype=torch.float), train_xs])
         batch_ys = torch.cat([torch.tensor(cover_y, dtype=torch.float), train_ys]).view(-1,1)
         model.zero_grad()
         preds = model(batch_xs)
@@ -127,5 +127,11 @@ def train_step():
 
 train_step();
 
-#aps = compute_aps(pred_y, test_y, test_qids)
-#print('Test.mAP: {0}'.format(np.mean(aps)))
+def eval_step():
+    model.eval()
+    with torch.no_grad():
+        test_x = torch.tensor(test_X, dtype=torch.float)
+        pred_y = model(test_x)
+        aps = compute_aps(pred_y, test_y, test_qids)
+        print('Test.mAP: {0}'.format(np.mean(aps)))
+
